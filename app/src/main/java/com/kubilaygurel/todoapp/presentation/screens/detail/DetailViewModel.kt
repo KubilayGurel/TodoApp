@@ -13,6 +13,7 @@ import androidx.work.workDataOf
 import com.kubilaygurel.todoapp.data.util.NotificationWorker
 import com.kubilaygurel.todoapp.domain.repository.TaskRepository
 import com.kubilaygurel.todoapp.domain.model.Task
+import com.kubilaygurel.todoapp.presentation.screens.detail.model.NoteState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,14 +35,6 @@ class DetailViewModel @Inject constructor(
 
     private val _errorState = MutableStateFlow<String?>(null)
     val errorState: StateFlow<String?> = _errorState
-
-    data class NoteState(
-        val title: String = "",
-        val content: String = "",
-        val reminderTime: Date? = null,
-        val imageUri: String? = null,
-        val isLoading: Boolean = false
-    )
 
     fun loadNote(noteId: Int) = viewModelScope.launch {
         if (noteId == 0) {
