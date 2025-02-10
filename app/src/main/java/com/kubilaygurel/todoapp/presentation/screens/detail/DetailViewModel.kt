@@ -44,12 +44,14 @@ class DetailViewModel @Inject constructor(
     )
 
     fun loadNote(noteId: Int) = viewModelScope.launch {
-        if (noteId == 0) return@launch
-        
+        if (noteId == 0) {
+            _noteState.update { it.copy(isLoading = false) }
+            return@launch
+        }
         try {
             _noteState.update { it.copy(isLoading = true) }
             repository.getTaskById(noteId)?.let { task ->
-                _noteState.update { 
+                _noteState.update {
                     it.copy(
                         title = task.title,
                         content = task.content,
@@ -57,6 +59,9 @@ class DetailViewModel @Inject constructor(
                         isLoading = false
                     )
                 }
+            } ?: run {
+                _errorState.value = "Task not found"
+                _noteState.update { it.copy(isLoading = false) }
             }
         } catch (e: Exception) {
             _errorState.value = e.message ?: "An error occurred while loading the note task"
@@ -75,7 +80,7 @@ class DetailViewModel @Inject constructor(
             _noteState.update { it.copy(isLoading = false) }
         }
     }
-    
+
     private fun insertNote(task: Task) = viewModelScope.launch {
         try {
             _noteState.update { it.copy(isLoading = true) }
@@ -90,37 +95,41 @@ class DetailViewModel @Inject constructor(
 
     private fun scheduleNotification(task: Task) {
         if (!hasNotificationPermission()) {
+            _errorState.value = "Notification permission not granted"
             return
         }
-
         try {
             val workManager = WorkManager.getInstance(context)
             val data = workDataOf(
                 "title" to task.title,
                 "content" to task.content
             )
-            
+
             val delay = task.reminderTime?.time?.minus(System.currentTimeMillis()) ?: 0L
-            
+            if (delay <= 0) {
+                _errorState.value = "Reminder time is in the past"
+                return
+            }
+
             val notificationWork = OneTimeWorkRequestBuilder<NotificationWorker>()
                 .setInitialDelay(delay, TimeUnit.MILLISECONDS)
                 .setInputData(data)
                 .build()
-                
+
             workManager.enqueueUniqueWork(
                 "notification_${task.id}",
                 ExistingWorkPolicy.REPLACE,
                 notificationWork
             )
         } catch (e: SecurityException) {
-            e.printStackTrace()
+            _errorState.value = "Notification scheduling failed: ${e.message}"
         }
     }
 
     private fun hasNotificationPermission(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == 
-                PackageManager.PERMISSION_GRANTED
+            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+                    PackageManager.PERMISSION_GRANTED
         } else {
             true
         }
@@ -152,6 +161,7 @@ class DetailViewModel @Inject constructor(
 
     fun saveNote(noteId: Int) = viewModelScope.launch {
         try {
+            val currentTask = repository.getTaskById(noteId)
             val task = Task(
                 id = noteId,
                 title = noteState.value.title,
@@ -159,9 +169,9 @@ class DetailViewModel @Inject constructor(
                 date = Date(),
                 reminderTime = noteState.value.reminderTime,
                 imageUri = noteState.value.imageUri,
-                isCompleted = false
+                isCompleted = currentTask?.isCompleted ?: false
             )
-            
+
             if (noteId == 0) {
                 insertNote(task)
             } else {
@@ -171,4 +181,4 @@ class DetailViewModel @Inject constructor(
             setError(e.message ?: "An error occurred while saving")
         }
     }
-} 
+}
