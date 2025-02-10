@@ -53,6 +53,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -63,6 +64,8 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+
+
 
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -76,6 +79,7 @@ fun DetailScreen(
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
     var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
+    var showDateError by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val scrollState = rememberScrollState()
     val errorState by viewModel.errorState.collectAsState()
@@ -102,10 +106,10 @@ fun DetailScreen(
     }
 
     Scaffold(
-        Modifier.background(color = MaterialTheme.colorScheme.background),
+        modifier = Modifier.background(color = MaterialTheme.colorScheme.background),
         topBar = {
             TopAppBar(
-                title = { 
+                title = {
                     Text(
                         text = if (noteId == 0) "Add Task" else "Edit Task",
                         style = MaterialTheme.typography.titleLarge.copy(
@@ -182,7 +186,8 @@ fun DetailScreen(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
                             unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                            focusedLabelColor = MaterialTheme.colorScheme.primary)
+                            focusedLabelColor = MaterialTheme.colorScheme.primary
+                        )
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -198,14 +203,15 @@ fun DetailScreen(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
                             unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                            focusedLabelColor = MaterialTheme.colorScheme.primary)
+                            focusedLabelColor = MaterialTheme.colorScheme.primary
                         )
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Reminder Section
+
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -273,9 +279,9 @@ fun DetailScreen(
                                 .clip(RoundedCornerShape(12.dp)),
                             contentScale = ContentScale.Crop
                         )
-                        
+
                         Spacer(modifier = Modifier.height(8.dp))
-                        
+
                         FilledTonalButton(
                             onClick = { viewModel.updateImageUri(null) },
                             modifier = Modifier.fillMaxWidth(),
@@ -321,10 +327,19 @@ fun DetailScreen(
                 TextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { millis ->
-                            showTimePicker = true
-                            selectedDate = Instant.ofEpochMilli(millis)
+                            val selectedLocalDate = Instant.ofEpochMilli(millis)
                                 .atZone(ZoneId.systemDefault())
                                 .toLocalDate()
+
+
+                            val currentDate = LocalDate.now()
+                            if (selectedLocalDate.isBefore(currentDate)) {
+                                showDateError = true
+                            } else {
+                                selectedDate = selectedLocalDate
+                                showTimePicker = true
+                                showDateError = false
+                            }
                         }
                         showDatePicker = false
                     }
@@ -345,6 +360,8 @@ fun DetailScreen(
 
     if (showTimePicker) {
         val timePickerState = rememberTimePickerState()
+        val currentTime = LocalTime.now()
+
         AlertDialog(
             onDismissRequest = { showTimePicker = false },
             confirmButton = {
@@ -355,6 +372,12 @@ fun DetailScreen(
                                 timePickerState.hour,
                                 timePickerState.minute
                             )
+
+                            if (time.isBefore(currentTime)) {
+                                viewModel.setError("You cannot set a reminder in the past!")
+                                return@TextButton
+                            }
+
                             val dateTime = date.atTime(time)
                             viewModel.updateReminderTime(
                                 Date.from(
@@ -380,6 +403,20 @@ fun DetailScreen(
     }
 
 
+    if (showDateError) {
+        AlertDialog(
+            onDismissRequest = { showDateError = false },
+            title = { Text("Error") },
+            text = { Text("You cannot select a past date.") },
+            confirmButton = {
+                TextButton(onClick = { showDateError = false }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+
     errorState?.let { error ->
         AlertDialog(
             onDismissRequest = { viewModel.clearError() },
@@ -391,23 +428,5 @@ fun DetailScreen(
                 }
             }
         )
-    }
-}
-
-@RequiresApi(Build.VERSION_CODES.O)
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun DatePickerDialog(
-    onDismissRequest: () -> Unit,
-    confirmButton: @Composable () -> Unit,
-    dismissButton: @Composable () -> Unit,
-    content: @Composable () -> Unit
-) {
-    androidx.compose.material3.DatePickerDialog(
-        onDismissRequest = onDismissRequest,
-        confirmButton = confirmButton,
-        dismissButton = dismissButton
-    ) {
-        content()
     }
 }
