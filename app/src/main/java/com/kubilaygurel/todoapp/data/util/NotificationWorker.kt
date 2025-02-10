@@ -46,6 +46,7 @@ class NotificationWorker(
             .setContentTitle(title)
             .setContentText(content)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
             .build()
 
         NotificationManagerCompat.from(applicationContext).notify(1, notification)
