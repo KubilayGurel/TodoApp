@@ -248,7 +248,7 @@ fun DetailScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Image Section
+
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -312,7 +312,7 @@ fun DetailScreen(
         }
     }
 
-    // Date Picker Dialog
+
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState()
         DatePickerDialog(
@@ -342,7 +342,7 @@ fun DetailScreen(
         }
     }
 
-    // Time Picker Dialog
+
     if (showTimePicker) {
         val timePickerState = rememberTimePickerState()
         AlertDialog(
@@ -379,7 +379,7 @@ fun DetailScreen(
         )
     }
 
-    // Error Dialog
+
     errorState?.let { error ->
         AlertDialog(
             onDismissRequest = { viewModel.clearError() },
